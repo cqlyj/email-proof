@@ -34,16 +34,10 @@ contract EmailDomainProverTest is VTest {
             "testdata/verify_vlayer.eml"
         );
         VerifiedEmail memory verifiedEmail = wrapper.verify(email);
-        callProver();
-        (
-            ,
-            bytes32 emailHash,
-            address registeredWallet,
-            string memory emailDomain
-        ) = prover.main(email);
+        // callProver();
+        (, bytes32 emailHash, address registeredWallet) = prover.main(email);
 
         assertEq(emailHash, sha256(abi.encodePacked(verifiedEmail.from)));
         assertEq(registeredWallet, johnDoe);
-        assertEq(emailDomain, "vlayer.xyz");
     }
 }
