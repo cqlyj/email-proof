@@ -1,0 +1,16 @@
+{
+  "name": "email-proof",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.10.0",
+  "dependencies": {
+    "@vlayer/sdk": "1.0.1-nightly-20250514-be01b84c2ab34f626e7652a577e41bc02da9a362"
+  }
+}
