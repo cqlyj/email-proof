@@ -12,13 +12,24 @@ contract EmailDomainProver is Prover {
     using Strings for string;
     using EmailProofLib for UnverifiedEmail;
 
+    error InvalidAddressLength();
+    error InvalidHexCharacter();
+    error NoWalletAddressInSubject();
+    error InvalidEmailDomain();
+
     function stringToAddress(string memory str) public pure returns (address) {
         bytes memory strBytes = bytes(str);
-        require(strBytes.length == 42, "Invalid address length");
+        if (strBytes.length != 42) {
+            revert InvalidAddressLength();
+        }
         bytes memory addrBytes = new bytes(20);
 
         for (uint256 i = 0; i < 20; i++) {
-            addrBytes[i] = bytes1(hexCharToByte(strBytes[2 + i * 2]) * 16 + hexCharToByte(strBytes[3 + i * 2]));
+            addrBytes[i] = bytes1(
+                hexCharToByte(strBytes[2 + i * 2]) *
+                    16 +
+                    hexCharToByte(strBytes[3 + i * 2])
+            );
         }
 
         return address(uint160(bytes20(addrBytes)));
@@ -26,31 +37,51 @@ contract EmailDomainProver is Prover {
 
     function hexCharToByte(bytes1 char) internal pure returns (uint8) {
         uint8 byteValue = uint8(char);
-        if (byteValue >= uint8(bytes1("0")) && byteValue <= uint8(bytes1("9"))) {
+        if (
+            byteValue >= uint8(bytes1("0")) && byteValue <= uint8(bytes1("9"))
+        ) {
             return byteValue - uint8(bytes1("0"));
-        } else if (byteValue >= uint8(bytes1("a")) && byteValue <= uint8(bytes1("f"))) {
+        } else if (
+            byteValue >= uint8(bytes1("a")) && byteValue <= uint8(bytes1("f"))
+        ) {
             return 10 + byteValue - uint8(bytes1("a"));
-        } else if (byteValue >= uint8(bytes1("A")) && byteValue <= uint8(bytes1("F"))) {
+        } else if (
+            byteValue >= uint8(bytes1("A")) && byteValue <= uint8(bytes1("F"))
+        ) {
             return 10 + byteValue - uint8(bytes1("A"));
         }
-        revert("Invalid hex character");
+        revert InvalidHexCharacter();
     }
 
-    function main(UnverifiedEmail calldata unverifiedEmail)
+    function main(
+        UnverifiedEmail calldata unverifiedEmail
+    )
         public
         view
-        returns (Proof memory, bytes32, address, string memory)
+        returns (Proof memory, bytes32 emailHash, address targetWallet)
     {
         VerifiedEmail memory email = unverifiedEmail.verify();
-        string[] memory subjectCapture = email.subject.capture("^Mint my domain NFT at address: (0x[a-fA-F0-9]{40})$");
-        require(subjectCapture.length > 0, "no wallet address in subject");
+        string[] memory subjectCapture = email.subject.capture(
+            "^This is my wallet at address: (0x[a-fA-F0-9]{40})$"
+        );
+        if (subjectCapture.length <= 0) {
+            revert NoWalletAddressInSubject();
+        }
 
-        address targetWallet = stringToAddress(subjectCapture[1]);
+        targetWallet = stringToAddress(subjectCapture[1]);
 
-        string[] memory captures = email.from.capture("^[\\w.-]+@([a-zA-Z\\d.-]+\\.[a-zA-Z]{2,})$");
-        require(captures.length == 2, "invalid email domain");
-        require(bytes(captures[1]).length > 0, "invalid email domain");
+        // @TODO: we can also return the domain in captures to Verifier contract
+        // optional checks
+        string[] memory captures = email.from.capture(
+            "^[\\w.-]+@([a-zA-Z\\d.-]+\\.[a-zA-Z]{2,})$"
+        );
+        if (captures.length != 2) {
+            revert InvalidEmailDomain();
+        }
+        if (bytes(captures[1]).length <= 0) {
+            revert InvalidEmailDomain();
+        }
 
-        return (proof(), sha256(abi.encodePacked(email.from)), targetWallet, captures[1]);
+        return (proof(), sha256(abi.encodePacked(email.from)), targetWallet);
     }
 }
